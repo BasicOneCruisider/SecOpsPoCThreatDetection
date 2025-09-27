@@ -101,7 +101,7 @@ variable "vm_admin_password" {
   default     = "Password1234!"
   sensitive   = true
 }
-
+````
 ## Prérequis techniques
 
 - **Azure CLI** installé et authentifié (`az login`)
@@ -117,6 +117,7 @@ terraform init
 terraform plan
 terraform apply
 terraform output vm_public_ip
+```
 
 ## Validation / Simulation d'attaque
 
@@ -126,6 +127,7 @@ Exécutez 4 tentatives SSH avec un mauvais mot de passe (dans une fenêtre de 5 
 
 ```bash
 ssh azureuser@<IP_PUBLIC>  # répétez avec un mauvais mot de passe 4 fois
+```
 
 ### 🔍 Étape 2 — Vérifier les logs (KQL)
 
@@ -137,6 +139,7 @@ Syslog
 | where SyslogMessage contains "Failed password for"
 | summarize AttemptCount = count() by Computer, bin(TimeGenerated, 5m)
 | order by TimeGenerated desc
+```
 
 Vous devriez voir AttemptCount >= 4.
 
@@ -152,6 +155,7 @@ Recherchez l’alerte **Alert-FailedSSHLoginAttempts** (severity 2) — elle doi
 
 ```bash
 terraform destroy
+```
 
 ### 🔐 Considérations de sécurité
 
@@ -175,4 +179,5 @@ MIT — libre à utiliser, modifier, redistribuer.
 - ✅ Diagramme d’architecture (PNG/SVG dans le repo)
 - ✅ Intégration avec Azure Sentinel pour corrélation et enrichissement
 
-````
+
+
