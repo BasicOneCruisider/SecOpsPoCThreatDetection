@@ -2,13 +2,18 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = "4.46.0"
     }
   }
 }
 
 provider "azurerm" {
   features {}
+    # Configuration explicite du fournisseur en utilisant les variables déclarées
+  client_id       = var.arm_client_id
+  client_secret   = var.arm_client_secret
+  tenant_id       = var.arm_tenant_id
+  subscription_id = var.arm_subscription_id
 }
 
 # ----------------------------------------------------
@@ -51,7 +56,7 @@ resource "azurerm_public_ip" "pip" {
   name                = "pip-${var.project_name}"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Dynamic"
+  allocation_method   = "Static"
 }
 
 resource "azurerm_network_interface" "nic" {
@@ -97,7 +102,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
   name                  = "vm-${var.project_name}"
   location              = azurerm_resource_group.rg.location
   resource_group_name   = azurerm_resource_group.rg.name
-  size                  = "Standard_DS1_v2"
+  size                  = "Standard_B2s"
   admin_username        = var.vm_admin_username
   admin_password        = var.vm_admin_password
   disable_password_authentication = false
