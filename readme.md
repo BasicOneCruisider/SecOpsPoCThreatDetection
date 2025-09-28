@@ -1,4 +1,6 @@
 # 📚 Azure Security Monitoring PoC — Terraform Project
+![Azure Monitoring Service](https://miro.medium.com/v2/0*Rmsv6ThTxvl8sHK7)
+
 
 **Infrastructure as Code** pour déployer un Proof-of-Concept (PoC) de surveillance de sécurité (SecOps) sur Azure : VM Linux exposée (PoC), agent Log Analytics (MMA/OMS), Log Analytics Workspace, et une règle d'alerte KQL détectant les tentatives de brute-force SSH.
 
@@ -178,6 +180,7 @@ MIT — libre à utiliser, modifier, redistribuer.
 - ✅ CI/CD avec GitHub Actions (terraform fmt, validate, plan)
 - ✅ Diagramme d’architecture (PNG/SVG dans le repo)
 - ✅ Intégration avec Azure Sentinel pour corrélation et enrichissement
+
 
 
 
