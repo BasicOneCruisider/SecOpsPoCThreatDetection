@@ -1,8 +1,8 @@
 # ----------------------------------------------------
 # 1. Log Analytics Agent Installation (Data Ingestion)
+#    (Nécessite azurerm_linux_virtual_machine.vm et azurerm_log_analytics_workspace.law)
 # ----------------------------------------------------
 
-# La ressource azurerm_virtual_machine_extension est correcte
 resource "azurerm_virtual_machine_extension" "log_analytics_agent" {
   name                 = "OMSExtension"
   virtual_machine_id   = azurerm_linux_virtual_machine.vm.id
@@ -21,61 +21,57 @@ resource "azurerm_virtual_machine_extension" "log_analytics_agent" {
       "workspaceKey": "${azurerm_log_analytics_workspace.law.primary_shared_key}"
     }
   PROTECTED_SETTINGS
-  
-  # Dépend de la VM pour être créé
+
   depends_on = [
     azurerm_linux_virtual_machine.vm,
   ]
 }
 
 # ----------------------------------------------------
-# 2. Azure Monitor Alert Rule (Correction du Schéma d'Alerte)
+# 2. Azure Monitor Alert Rule (Détection de Tentatives SSH Échouées)
 # ----------------------------------------------------
 
-# Utilisation de la ressource actuelle et non dépréciée
-resource "azurerm_monitor_scheduled_query_rule" "failed_login_alert" {
+# Utilisation de la ressource supportée par votre fournisseur
+resource "azurerm_monitor_scheduled_query_rules_alert" "failed_login_alert" {
   name                = "Alert-FailedSSHLoginAttempts"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  
-  # L'ID du Workspace est défini dans le bloc 'source'
-  
-  # Définition des propriétés de l'alerte
-  description         = "Alerts on potential brute force attack (more than 3 failed SSH attempts in 5 minutes)."
-  enabled             = true
-  severity            = 2 # Warning (0=Critical, 1=Error, 2=Warning, 3=Informational)
 
-  # Définition de la fréquence et de la fenêtre de temps
-  evaluation_frequency = "PT5M" # Fréquence d'exécution de la requête (5 minutes)
-  window_duration      = "PT5M" # Période des données à analyser (5 minutes)
-  
-  # Configuration de la Requête KQL (Utilise le bloc source)
+  # ID de la source de données (Log Analytics Workspace)
   data_source_id = azurerm_log_analytics_workspace.law.id
-  
-  # --- Bloc CRITERIA pour la logique de détection ---
-  criteria {
-    query              = <<-KQL
-      Syslog 
-      | where Process == "sshd" 
-      | where SyslogMessage contains "Failed password for"
-      | summarize AggregatedValue = count() by Computer
-    KQL
-    
-    time_aggregation   = "Count" 
-    
-    # Configuration du seuil (le bloc 'metric_trigger' de l'ancienne ressource est maintenant intégré ici)
-    operator           = "GreaterThan"
-    threshold          = 3
-    metric_measure_column = "AggregatedValue" # Doit correspondre à la colonne de votre summarize
+
+  description = "Alerts on potential brute force attack (more than 3 failed SSH attempts in 5 minutes)."
+  enabled     = true
+  severity    = 2 # Warning (1=Error, 2=Warning, etc.)
+
+  # Requête KQL simplifiée pour retourner le COUNT
+  query       = <<-QUERY
+    Syslog
+    | where Process == "sshd"
+    | where SyslogMessage contains "Failed password for"
+    | summarize count()
+  QUERY
+
+  # Périodes d'évaluation (Utilisation des noms d'arguments requis par cette ressource)
+  frequency   = 5   # Fréquence d'exécution de la requête en minutes (correspond à "PT5M")
+  time_window = 5   # Période de temps des données analysées en minutes (correspond à "PT5M")
+
+  # Bloc 'trigger' (Requis à la racine de la ressource)
+  trigger {
+    operator  = "GreaterThan"
+    threshold = 3
   }
 
-  # --- Bloc ACTIONS pour la notification ---
+  # Définition de la notification (Action Group)
   action {
-    # Référence à un groupe d'actions réel ou un placeholder.
-    # L'argument requis ici est 'action_group_id' (dans le bloc action).
-    action_group_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.rg.name}/providers/microsoft.insights/actionGroups/placeholder-action-group"
+    # L'argument requis pour référencer un Action Group
+    action_group = ["/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.rg.name}/providers/microsoft.insights/actionGroups/placeholder-action-group"]
+
+    # Arguments optionnels de l'exemple de la doc pour éviter les erreurs de syntaxe
+    email_subject        = "Alerte Terraform: Tentatives SSH échouées"
+    custom_webhook_payload = "{}"
   }
 }
 
-# Data source pour récupérer l'ID de la souscription
+# Data source pour récupérer l'ID de la souscription (utilisée dans l'Action Group ID)
 data "azurerm_client_config" "current" {}
