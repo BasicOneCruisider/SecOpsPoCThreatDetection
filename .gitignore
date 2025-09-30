@@ -1,0 +1,30 @@
+# Fichiers Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+
+# Clés et certificats
+*.pem
+*.key
+
+# Dossiers d’images
+pics/
+.pics/
+
+# Fichiers et dossiers d’IDE
+.idea/
+*.iml
+.vscode/
+
+# Fichiers de logs
+*.log
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Autres fichiers sensibles ou temporaires
+*.bak
+*.swp
