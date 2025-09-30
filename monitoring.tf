@@ -1,64 +1,24 @@
-# NOTE: Ce fichier suppose que vous avez :
-# 1. Le fichier SSHKEYSEC.pem dans le même répertoire que ce fichier.
-# 2. Le port 22 ouvert sur le NSG pour l'IP source de votre machine.
-# 3. L'utilisateur de la VM est configuré pour 'sudo' sans mot de passe.
+# NOTE: La VM, l'agent et les prérequis SSH sont supposés être gérés manuellement, pour plus de fiabilité et de controle
 
 # ----------------------------------------------------
-# 1. Installation de l'Agent MMA/OMS (Via Remote-Exec SSH)
+# 1. Configuration du Groupe d'Actions (Destination des Alertes)
 # ----------------------------------------------------
 
-resource "null_resource" "install_log_analytics_agent" {
-  # Déclenche la création du provisioner si la VM change
-  triggers = {
-    vm_id = azurerm_linux_virtual_machine.vm.id
+resource "azurerm_monitor_action_group" "sec_alerts" {
+    name                = "ag-secops-email-notifications"
+    resource_group_name = azurerm_resource_group.rg.name
+    location            = "Global"
+    short_name          = "secopsag"
+
+    email_receiver {
+      name                    = "security_team_email"
+      email_address           = "ntahimperafrancis@gmail.com"
+      use_common_alert_schema = true
   }
-
-  # Dépend de la VM et du Workspace
-  depends_on = [
-    azurerm_linux_virtual_machine.vm,
-    azurerm_log_analytics_workspace.law,
-  ]
-
-  # ⚠️ CONFIGURATION SSH : Référence à la clé privée "SSHKEYSEC.pem"
-  connection {
-    type        = "ssh"
-    user        = azurerm_linux_virtual_machine.vm.admin_username
-    host        = azurerm_public_ip.pip.ip_address
-
-    # CORRECTION : Utilisation du nom de fichier exact
-    private_key = file("id_rsa")
-  }
-
-  # Provisioner : Exécution forcée
- # ...
-  # Provisioner : Exécution forcée et robuste
-  provisioner "remote-exec" {
-    inline = [
-      "set -e",
-      "echo 'Démarrage de l'installation de l'agent MMA/OMS via SSH...'",
-
-      # 1. Configuration des secrets
-      "export WORKSPACE_ID='${azurerm_log_analytics_workspace.law.workspace_id}'",
-      "export SHARED_KEY='${azurerm_log_analytics_workspace.law.primary_shared_key}'",
-
-      # 2. Téléchargement et exécution du script
-      # Utilisation de /bin/bash pour plus de robustesse.
-      "sudo /bin/bash -c 'wget -O onboard_agent.sh https://raw.githubusercontent.com/Microsoft/OMS-Agent-for-Linux/master/installer/scripts/onboard_agent.sh'",
-
-      # Exécution directe du script via sudo /bin/bash (qui peut mieux gérer l'environnement)
-      "sudo /bin/bash onboard_agent.sh -w $WORKSPACE_ID -s $SHARED_KEY -d opinsights.azure.com",
-
-      "echo 'Installation de l'agent terminée.'",
-
-      # Nettoyage
-      "unset WORKSPACE_ID SHARED_KEY",
-    ]
-  }
-# ...
 }
 
 # ----------------------------------------------------
-# 2. Règle d'Alerte Azure Monitor
+# 2. Règle d'Alerte Azure Monitor (Utilise le Groupe d'Actions)
 # ----------------------------------------------------
 
 resource "azurerm_monitor_scheduled_query_rules_alert" "failed_login_alert" {
@@ -84,11 +44,13 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "failed_login_alert" {
 
   trigger {
     operator  = "GreaterThan"
-    threshold = 3
+    threshold = 3kalash
   }
 
   action {
-    action_group           = ["/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.rg.name}/providers/microsoft.insights/actionGroups/placeholder-action-group"]
+    # Lien vers l'ID du Groupe d'Actions
+    action_group           = [azurerm_monitor_action_group.sec_alerts.id]
+
     email_subject          = "Alerte Terraform: Tentatives SSH échouées"
     custom_webhook_payload = "{}"
   }
@@ -96,3 +58,5 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "failed_login_alert" {
 
 # Data source pour récupérer l'ID de la souscription
 data "azurerm_client_config" "current" {}
+
+# NOTE: Les ressources VM, VNet, etc. doivent être importées ou définies ailleurs.
